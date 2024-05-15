@@ -20,7 +20,7 @@ import { Tooltip } from "@chakra-ui/tooltip";
 import { BellIcon, ChevronDownIcon } from "@chakra-ui/icons";
 import { Avatar } from "@chakra-ui/avatar";
 import { useHistory } from "react-router-dom";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import axios from "axios";
 import { useToast } from "@chakra-ui/toast";
 import ChatLoading from "../ChatLoading";
@@ -35,6 +35,8 @@ import { ChatState } from "../../Context/ChatProvider";
 function SideDrawer() {
   const [search, setSearch] = useState("");
   const [searchResult, setSearchResult] = useState([]);
+  const [searchedUsers, setSearchedUsers] = useState([]);
+
   const [loading, setLoading] = useState(false);
   const [loadingChat, setLoadingChat] = useState(false);
 
@@ -55,31 +57,18 @@ function SideDrawer() {
     localStorage.removeItem("userInfo");
     history.push("/");
   };
-
+  useEffect(() => {
+    handleSearch();
+  }, []);
   const handleSearch = async () => {
-    if (!search) {
-      toast({
-        title: "Please Enter something in search",
-        status: "warning",
-        duration: 5000,
-        isClosable: true,
-        position: "top-left",
-      });
-      return;
-    }
-
     try {
-      setLoading(true);
-
       const config = {
         headers: {
           Authorization: `Bearer ${user.token}`,
         },
       };
 
-      const { data } = await axios.get(`/api/user?search=${search}`, config);
-
-      setLoading(false);
+      const { data } = await axios.get(`/api/user`, config);
       setSearchResult(data);
     } catch (error) {
       toast({
@@ -90,6 +79,38 @@ function SideDrawer() {
         isClosable: true,
         position: "bottom-left",
       });
+    }
+  };
+
+  const getUsers = () => {
+    if (!search) {
+      toast({
+        title: "Please Enter something in search",
+        status: "warning",
+        duration: 5000,
+        isClosable: true,
+        position: "top-left",
+      });
+      return;
+    }
+    try {
+      setLoading(true);
+      const users = searchResult.filter(
+        (user) => user.name.toLowerCase().indexOf(search.toLowerCase()) !== -1
+      );
+      if (users.length > 0) setSearchedUsers(users);
+      else throw new Error();
+      setLoading(false);
+    } catch (error) {
+      toast({
+        title: "No User Found!",
+        description: "Failed to find User. Try again!",
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+        position: "bottom-left",
+      });
+      setLoading(false);
     }
   };
 
@@ -200,12 +221,20 @@ function SideDrawer() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
-              <Button onClick={handleSearch}>Go</Button>
+              <Button onClick={getUsers}>Go</Button>
             </Box>
             {loading ? (
               <ChatLoading />
+            ) : search && searchedUsers.length ? (
+              searchedUsers.map((user) => (
+                <UserListItem
+                  key={user._id}
+                  user={user}
+                  handleFunction={() => accessChat(user._id)}
+                />
+              ))
             ) : (
-              searchResult?.map((user) => (
+              searchResult.map((user) => (
                 <UserListItem
                   key={user._id}
                   user={user}
